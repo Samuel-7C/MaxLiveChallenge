@@ -1,46 +1,54 @@
-import React, { SyntheticEvent, useState } from "react";
-import logo from "../logo.svg";
-import request from "../hooks/request";
+import debounce from "lodash.debounce";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import ArtistList from "../components/ArtistList";
+import GenreSearchBar from "../components/GenreSearchBar";
 import { EndPoints } from "../constants";
-
-function debounce(func: any, timeout = 300) {
-  let timer: any;
-  return (...args: any) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      //@ts-ignore
-      func.apply(this, args);
-    }, timeout);
-  };
-}
+import request from "../services/request";
+import { Link } from "react-router-dom";
 
 function ArtistSearch() {
-  const [query, setQuery] = useState("");
   const [genres, setGenres] = useState();
+  const [artists, setArtists] = useState();
 
-  const onUserInput = (event: any) => {
+  useEffect(() => {
+    return () => {
+      debouncedInput.cancel();
+    };
+  });
+
+  const onUserInput = async (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-    setQuery(value);
-    debounce(async() => await request(EndPoints.GENRES, value), 300);
+    if (!value) {
+      setGenres(undefined);
+      return;
+    }
+    const res = await request(EndPoints.GENRES, `${value}&limit=20`);
+    setGenres(res);
+  };
+
+  const debouncedInput = useMemo(() => {
+    return debounce(onUserInput, 300);
+  }, []);
+
+  const getArtistsByGenre = async (genreId: string) => {
+    const res = await request(`${EndPoints.GENRES}/${genreId}/artists`);
+    setArtists(res);
   };
 
   return (
-    <div className="w-full h-full text-slate-50 py-36 px-28	">
-      <div className="w-full h-2/6 rounded-lg mb-3 flex flex-col justify-center items-center bg-gray-700">
-        <label className="w-10/12 text-2xl font-medium" htmlFor="genre">
-          Search Artist by Genre
-        </label>
-        <input
-          type="text"
-          className="h-9 w-10/12 px-2 rounded-lg my-3"
-          id="genre"
-          name="genreInput"
-          value={query}
-          onChange={onUserInput}
-        />
+    <>
+      <Link to="/list">
+        <h2 className="my-2 text-right underline underline-offset-1	">View My List</h2>
+      </Link>
+      <GenreSearchBar
+        genres={genres}
+        onSearch={debouncedInput}
+        onGenreClick={getArtistsByGenre}
+      />
+      <div className="w-full h-[28rem]  my-1   overflow-y-auto		">
+        {artists && <ArtistList artists={artists} />}
       </div>
-      <div className="w-full h-80 flex flex-wrap justify-center items-start "></div>
-    </div>
+    </>
   );
 }
 
